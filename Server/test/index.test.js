@@ -9,6 +9,12 @@ describe('POST /generate', () => {
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
     expect(response.body.length).toBeGreaterThan(0);
+    // Check that each flashcard has question and answer
+    if (response.body.length > 0) {
+      expect(response.body[0]).toHaveProperty('id');
+      expect(response.body[0]).toHaveProperty('question');
+      expect(response.body[0]).toHaveProperty('answer');
+    }
   });
 
   it('should return a 200 response for a valid image prompt', async () => {
@@ -19,6 +25,12 @@ describe('POST /generate', () => {
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
     expect(response.body.length).toBeGreaterThan(0);
+    // Check that each flashcard has question and answer
+    if (response.body.length > 0) {
+      expect(response.body[0]).toHaveProperty('id');
+      expect(response.body[0]).toHaveProperty('question');
+      expect(response.body[0]).toHaveProperty('answer');
+    }
   });
 
   it('should return a 400 response for an invalid request', async () => {

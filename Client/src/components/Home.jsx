@@ -27,7 +27,6 @@ export const Home = () => {
   const [loading, setLoading] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [buttonVisible, setButtonVisible] = useState(true);
-  const [score, setScore] = useState({ correct: 0, total: 0 });
 
   useEffect(() => {
     animate(color, COLORS_TOP, {
@@ -85,8 +84,7 @@ export const Home = () => {
         const formattedFlashcards = data.map((item) => ({
           id: item.id,
           question: item.question,
-          options: item.options,
-          correctAnswer: item.correctAnswer,
+          answer: item.answer,
         }));
 
         setFlashcards(formattedFlashcards);
@@ -179,13 +177,12 @@ export const Home = () => {
                   submitHandler={submitHandler}
                   error={error}
                   loading={loading}
+                  setLoading={setLoading}
                   setFlashcards={setFlashcards}
                 />
                 {flashcards.length > 0 && (
                   <FlashcardGrid
                     flashcards={flashcards}
-                    score={score}
-                    setScore={setScore}
                   />
                 )}
               </motion.div>

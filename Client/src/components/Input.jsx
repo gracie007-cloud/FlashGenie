@@ -12,17 +12,18 @@ const FlashcardInput = ({
   handleMessageChange,
   submitHandler,
   error,
+  setFlashcards,
+  loading: parentLoading,
+  setLoading: setParentLoading,
 }) => {
   const [image, setImage] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [flashcards, setFlashcards] = useState([]);
+  const [localLoading, setLocalLoading] = useState(false);
   const [errorMessage, setError] = useState(null);
   const [imageUploaded, setImageUploaded] = useState(false);
   const COLORS_TOP = ["#00BFFF", "#1E90FF"];
   const color = useMotionValue(COLORS_TOP[0]);
   const border = useMotionTemplate`1px solid ${color}`;
   const boxShadow = useMotionTemplate`0px 4px 24px ${color}`;
-  const [score, setScore] = useState({ correct: 0, total: 0 });
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -51,7 +52,8 @@ const FlashcardInput = ({
   };
 
   const generateFlashcards = async () => {
-    setLoading(true);
+    const isLoading = parentLoading !== undefined ? setParentLoading : setLocalLoading;
+    isLoading(true);
     setError(null);
     try {
       if (!image) {
@@ -61,68 +63,40 @@ const FlashcardInput = ({
       }
       const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8080/generate";
 
-      // Post the base64 image to the backend; it will run vision + MCQ gen
+      // Post the base64 image to the backend; it will generate flashcards
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: image })
+        body: JSON.stringify({ imageBase64: image, quiz: quiz || "" })
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Request failed: ${res.status}`);
+        throw new Error(err.message || err.details || `Request failed: ${res.status}`);
       }
 
       const data = await res.json();
       if (!Array.isArray(data)) {
         throw new Error('Invalid response from server.');
       }
-      setFlashcards(data);
+      
+      const formattedFlashcards = data.map((item) => ({
+        id: item.id,
+        question: item.question,
+        answer: item.answer,
+      }));
+      
+      if (setFlashcards) {
+        setFlashcards(formattedFlashcards);
+      }
     } catch (error) {
       console.error("Error generating flashcards:", error);
       setError(`Failed to generate flashcards: ${error.message}`);
     } finally {
-      setLoading(false);
+      isLoading(false);
     }
   };
 
-  const parseFlashcardsFromResponse = (responseText) => {
-    const flashcards = [];
-    // More flexible pattern to match various response formats
-    const flashcardPattern = /(?:Flashcard\s*\d+:?\s*\n?)?Question:\s*(.*?)(?:\n|\r\n?)Correct Answer:\s*(.*?)(?:\n|\r\n?)(?:Incorrect Option[s\s]*(?:1|one|a):\s*(.*?)(?:\n|\r\n?)Incorrect Option[s\s]*(?:2|two|b):\s*(.*?)(?:\n|\r\n?)Incorrect Option[s\s]*(?:3|three|c):\s*(.*?))(?=\n\s*(?:Flashcard|$))/gis;
-
-    let match;
-    let id = 1;
-    while ((match = flashcardPattern.exec(responseText)) !== null && id <= 6) {
-      const [, question, correctAnswer, incorrectOption1, incorrectOption2, incorrectOption3] = match;
-      
-      if (question && correctAnswer && incorrectOption1 && incorrectOption2 && incorrectOption3) {
-        flashcards.push({
-          id: id++,
-          question: question.trim(),
-          answer: correctAnswer.trim(),
-          options: shuffleArray([
-            correctAnswer.trim(),
-            incorrectOption1.trim(),
-            incorrectOption2.trim(),
-            incorrectOption3.trim(),
-          ]),
-          correctAnswer: correctAnswer.trim(),
-        });
-      }
-    }
-
-    // If we have less than 6 flashcards but more than 0, it's still valid
-    return flashcards.length > 0 ? flashcards : null;
-  };
-
-  const shuffleArray = (array) => {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-  };
 
   return (
     <>
@@ -183,20 +157,11 @@ const FlashcardInput = ({
             whileHover={{ scale: 1.045 }}
             whileTap={{ scale: 0.985 }}
             className="group relative flex w-fit items-center gap-1.5 rounded-full bg-gray-950/10 px-4 py-2 text-gray-50 transition-colors hover:bg-gray-950/50 self-center"
-            disabled={loading}
+            disabled={parentLoading || localLoading}
           >
-            {loading ? "Generating..." : "Generate"}
+            {(parentLoading || localLoading) ? "Generating..." : "Generate"}
           </motion.button>
         </form>
-        {flashcards.length > 0 && (
-          <div>
-            <FlashcardGrid
-              flashcards={flashcards}
-              score={score}
-              setScore={setScore}
-            />
-          </div>
-        )}
         <div className="flex flex-col gap-2 pt-5">
           {error && <div className="text-red-500">{error}</div>}
           {errorMessage && (
@@ -213,6 +178,9 @@ FlashcardInput.propTypes = {
   handleMessageChange: PropTypes.func.isRequired,
   submitHandler: PropTypes.func.isRequired,
   error: PropTypes.string,
+  setFlashcards: PropTypes.func,
+  loading: PropTypes.bool,
+  setLoading: PropTypes.func,
 };
 
 export default FlashcardInput;
